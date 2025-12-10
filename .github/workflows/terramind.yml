@@ -1,0 +1,23 @@
+name: terramind
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  terramind:
+    if: |
+      contains(github.event.comment.body, ' @terramind') ||
+      startsWith(github.event.comment.body, '@terramind')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
+      issues: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Terramind
+        uses: terramind-com/github-action@main
