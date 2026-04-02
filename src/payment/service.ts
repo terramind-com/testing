@@ -60,9 +60,18 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     };
   }
 
-  // BUG: getUser() returns undefined for non-existent users
-  // but we access .subscription without null checking
   const user = getUser(userId);
+  if (!user) {
+    return {
+      id: generatePaymentId(),
+      status: "failed",
+      amount,
+      currency,
+      error: `User ${userId} not found`,
+      processedAt: new Date(),
+    };
+  }
+
   const subscription = user.subscription;
 
   // Check if user's subscription allows this payment
