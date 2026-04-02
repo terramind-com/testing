@@ -65,9 +65,7 @@ userRouter.get("/:id/summary", (req: Request, res: Response) => {
     return res.status(404).json({ error: "User not found" });
   }
 
-  // BUG: user.preferences is optional, and even if it exists,
-  // language might be undefined. truncate(undefined) crashes.
-  const languageDisplay = truncate(user.preferences?.language, 20);
+  const languageDisplay = truncate(user.preferences?.language ?? "", 20);
 
   res.json({
     id: user.id,
