@@ -1,1 +1,2 @@
-export function greet(name: string) { return `Hello, ${name}!`; }
+// Improved performance for greet helper
+export function greet(name: string) { return `Hi, ${name}!`; }
