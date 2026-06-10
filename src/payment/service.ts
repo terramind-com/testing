@@ -3,7 +3,7 @@
  * Handles payment creation, validation, and processing.
  */
 
-import { getUser } from "../models/user";
+import { getUser, type Subscription, type User } from "../models/user";
 
 export interface PaymentRequest {
   userId: string;
@@ -36,14 +36,6 @@ const paymentMethods: Map<string, PaymentMethod> = new Map();
 
 /**
  * Process a payment for a user.
- *
- * BUG: Does not null-check the user object before accessing user.subscription.
- * When a userId doesn't exist in the database, getUser() returns undefined,
- * and accessing user.subscription throws:
- *   TypeError: Cannot read properties of null (reading 'subscription')
- *
- * This was previously fixed in commit abc123 but regressed when the
- * payment flow was refactored in the v2 migration.
  */
 export async function processPayment(request: PaymentRequest): Promise<PaymentResult> {
   const { userId, amount, currency, paymentMethodId } = request;
@@ -60,13 +52,32 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     };
   }
 
-  // BUG: getUser() returns undefined for non-existent users
-  // but we access .subscription without null checking
   const user = getUser(userId);
-  const subscription = user.subscription;
+  if (!user) {
+    return {
+      id: generatePaymentId(),
+      status: "failed",
+      amount,
+      currency,
+      error: `User ${userId} not found`,
+      processedAt: new Date(),
+    };
+  }
+
+  const subscription = getBillableSubscription(user);
+  if (!subscription) {
+    return {
+      id: generatePaymentId(),
+      status: "failed",
+      amount,
+      currency,
+      error: `User ${userId} does not have an active subscription`,
+      processedAt: new Date(),
+    };
+  }
 
   // Check if user's subscription allows this payment
-  if (subscription?.status === "expired") {
+  if (subscription.status === "expired") {
     return {
       id: generatePaymentId(),
       status: "failed",
@@ -175,6 +186,14 @@ function generatePaymentId(): string {
 
 async function getPaymentMethod(id: string): Promise<PaymentMethod | null> {
   return paymentMethods.get(id) || null;
+}
+
+function getBillableSubscription(user: User): Subscription | null {
+  if (!user.subscription) {
+    return null;
+  }
+
+  return user.subscription;
 }
 
 async function chargePaymentMethod(
